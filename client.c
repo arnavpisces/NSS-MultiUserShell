@@ -19,7 +19,10 @@ void * reader(int sock){
     int rc;
     char message[5000];
     while(1){
+        memset(message,'\0',sizeof(message));
+        // printf("Before read\n");
         rc=read(sock,message,sizeof(message));
+        // printf("After read\n");
         if(rc==-1){
                 perror("read() error");
                 close(sock);
@@ -31,61 +34,68 @@ void * reader(int sock){
                 exit(0);
                 pthread_exit(NULL);
             }
-        printf("%s",message);
-        memset(message,'\0',sizeof(message));
+        printf("%s",message); //So if i add a newline in printing message then it would print properly but if i dont add new line then the OS doesn't print to the terminal unless a new line is encountered so the make it print to the terminal even before the newline, i added fflush
+        fflush( stdout );
+
+
         // int rc;
         // message[5000];
         // while(1){
-            fgets(message,sizeof(message),stdin); //*
-            // printf("%s ",message);
-            message[strcspn(message, "\n\0")] = 0; //*
-            // printf("%s",message);
-            // rc=write(sock,message,strlen(message));
-            rc=send(sock, message,strlen(message),0);//*
-            if(rc==-1){
-                perror("write() error");
-                close(sock);
-                exit(-1);
-            }
+            // printf("Before write\n");
+            // fgets(message,sizeof(message),stdin); //*
+            // printf("After write\n");
+
+            // // printf("%s ",message);
+            // message[strcspn(message, "\n\0")] = 0; //*
+            // // printf("%s",message);
+            // // rc=write(sock,message,strlen(message));
+            // rc=send(sock, message,strlen(message),0);//*
+            // if(rc==-1){
+            //     perror("write() error");
+            //     close(sock);
+            //     exit(-1);
+            // }
         // }
     }
 }
 
 void * writer(int sock){
-    int rc;
-    char message[5000];
-    while(1){
-        rc=read(sock,message,sizeof(message));
-        if(rc==-1){
-                perror("read() error");
-                close(sock);
-                pthread_exit(NULL);
-            }
-        if(!strcmp(message,"\0")){
-                printf("Connection closed by server\n");
-                close(sock);
-                exit(0);
-                pthread_exit(NULL);
-            }
-        printf("%s",message);
-        memset(message,'\0',sizeof(message));
-        
-
-    }
-
     // int rc;
     // char message[5000];
     // while(1){
-    //     fgets(message,sizeof(message),stdin);
-    //     message[strcspn(message, "\n\0")] = 0; //*
-    //     // rc=write(sock,message,strlen(message));
-    //     rc=send(sock, message,strlen(message),0);
+    //     rc=read(sock,message,sizeof(message));
     //     if(rc==-1){
-    //         perror("write() error");
-    //         close(sock);
-    //         exit(-1);
-    //     }
+    //             perror("read() error");
+    //             close(sock);
+    //             pthread_exit(NULL);
+    //         }
+    //     if(!strcmp(message,"\0")){
+    //             printf("Connection closed by server\n");
+    //             close(sock);
+    //             exit(0);
+    //             pthread_exit(NULL);
+    //         }
+    //     printf("%s",message);
+    //     memset(message,'\0',sizeof(message));
+        
+
     // }
+
+    int rc;
+    char message[5000];
+    while(1){
+        // printf("Before write\n");
+        fgets(message,sizeof(message),stdin); //*
+        // printf("After write\n");
+        message[strcspn(message, "\n\0")] = 0; //*
+        // rc=write(sock,message,strlen(message));
+        rc=send(sock, message,strlen(message),0);
+        if(rc==-1){
+            perror("write() error");
+            close(sock);
+            exit(-1);
+        }
+    }
 }
 
 int main(int argc, char const *argv[])
@@ -118,8 +128,8 @@ int main(int argc, char const *argv[])
     int create=-1;
 
     create=pthread_create(&threads[0],NULL,reader,sock);
-    // create=pthread_create(&threads[1],NULL,writer,sock);
+    create=pthread_create(&threads[1],NULL,writer,sock);
     pthread_join(threads[0],NULL);
-    // pthread_join(threads[1],NULL);
+    pthread_join(threads[1],NULL);
     return 0;
 }

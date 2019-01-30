@@ -23,6 +23,11 @@ char users[4][10];
 int sockfds[100];
 char currentDir[200];
 char loggedin[10];
+char relativePath[100];
+
+
+// char* showdir(char *dir,char flag);
+char* directoryWithPath(char *path);
 
 void * sockThread(int sockaccept){
 //     pid_t pid=fork();
@@ -42,6 +47,7 @@ void * sockThread(int sockaccept){
     int i=0;
     int id=++clients;
     int sock=sockaccept;
+    
     char msg[5000];
     char shellHeader[200];
     
@@ -96,8 +102,8 @@ void * sockThread(int sockaccept){
     //IF THE LOGIN IS SUCCESSFUL, WELCOME MESSAGE
     strcpy(loggedin, cmsg); //Copying the logged in user to the loggedin variable
     // memset(cmsg,'\0',sizeof(cmsg));
-    // snprintf(msg,sizeof(msg),"Welcome User %s\n",cmsg);
-    // send(sock, msg,strlen(msg),0);
+    snprintf(msg,sizeof(msg),"Welcome User %s\n",cmsg);
+    send(sock, msg,strlen(msg),0);
 
     char justUser[10]; //String for user without null terminator
     int k=0;
@@ -105,17 +111,26 @@ void * sockThread(int sockaccept){
         justUser[k]=cmsg[k];
     }
     strcat(currentDir,loggedin); //To change the home of the current directory to the user's home
-    snprintf(msg,sizeof(msg),"Welcome User %s\n%s@SHELL:~$",loggedin,loggedin);
-    send(sock, msg,sizeof(msg),0);
+    strcat(currentDir,"/"); 
+
+    // snprintf(msg,sizeof(msg),"Welcome User %s\n%s@SHELL:~$",loggedin,loggedin);
+    // snprintf(msg,sizeof(msg),"%s@SHELL:~%s$",loggedin,relativePath);
+    // send(sock, msg,sizeof(msg),0);
+    strcpy(relativePath,"/");
     while(1){
+        printf("loop revertback\n");
+        snprintf(msg,sizeof(msg),"%s@SHELL:~%s$",loggedin,relativePath);
+        send(sock, msg,sizeof(msg),0);
         memset(cmsg,'\0',sizeof(cmsg));
         recv(sock,cmsg,5000,0);
-        if(strlen(cmsg)==0){
-            // printf("CLIENT %d LEFT THE SERVER\n",id);
-            close(sock);
-            sockfds[sock]=-1;
-            pthread_exit(NULL);
-        }
+        
+        
+        // if(strlen(cmsg)==0){
+        //     // printf("CLIENT %d LEFT THE SERVER\n",id);
+        //     close(sock);
+        //     sockfds[sock]=-1;
+        //     pthread_exit(NULL);
+        // }
         // char format[5000];
         // snprintf(format,sizeof(format),"%d: %s",id,cmsg);
         // for(i=0;i<100;i++){
@@ -136,32 +151,36 @@ void * sockThread(int sockaccept){
         // }
 
         /*The shell functionality starts from here*/
-            printf("%s\n",loggedin);
+        // printf("%s\n",loggedin);
 
         char *commands = strtok (cmsg," ");
+        int flag1=0;
+        char first[10]; //The command that the user will be calling
+        char path[100]; memset(path,'\0',sizeof(path));        
         while(commands!=NULL){
-            printf("%s\n",commands);
+
+            if(flag1==0){ //Getting the 1st word
+                strcpy(first,commands);
+                // printf("%s\n",first);
+                flag1=1;
+            }
+            else{
+                strcpy(path,commands);
+                // printf("%s\n",path);
+            }
             commands = strtok (NULL, " ");
-        }
-        // printf("%s ",commands[0]);
+
+        }  
+        //Now we have the first word in first and the path of file/directory in the variable path
+        printf("the length is %d \n",strlen(path));
+        // if(strlen(path)!=0){
+        //     strcat(currentDir,path);
+        //     printf("%s ",currentDir);
+        // }
+        showdir(directoryWithPath(path),sock);
+        
 
     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -171,7 +190,8 @@ void * sockThread(int sockaccept){
 
 
 
-
+    // snprintf(msg,sizeof(msg),"%s@SHELL:~%s$",loggedin,relativePath);
+    // send(sock, msg,sizeof(msg),0);
     }
     pthread_exit(NULL);
 }
@@ -195,26 +215,48 @@ void * sockThread(int sockaccept){
 //     }
 // }
 
-void showdir(char *dir,char flag) {
+char* directoryWithPath(char *path){ //Returns a path concatenated of currentDir with path variable provided
+    char aux[1000];
+    strcpy(aux,currentDir);
+    strcat(aux,path);
+    return aux;
+}
+
+void showdir(char *dir,int sock) {
         struct dirent *de;
         DIR *dr = opendir(dir);
+        char content[1000];
         if (dr == NULL) {
-            printf("Could not open current directory\n");
+            // printf("Could not open given directory\n");
+            snprintf(content,sizeof(content),"Could not open given directory\n");
+            send(sock, content ,strlen(content),0);
             return;
         }
-        if (flag == 'y') { //won't show hidden
-        while ((de = readdir(dr)) != NULL)
-            if (de->d_name[0] != '.')
-                printf("%s\n", de->d_name);
-        closedir(dr);
+        
+        memset(content,'\0',sizeof(content));
+        // if (flag == 'y') { //won't show hidden
+        while ((de = readdir(dr)) != NULL){
+            if (de->d_name[0] != '.'){
+                // printf("%s\n", de->d_name);
+                strcat(content,de->d_name);
+                strcat(content,"\n");
+            }
         }
-        else{ //will show hidden
-            while ((de = readdir(dr)) != NULL)
-    //            if (de->d_name[0] != '.')
-                    printf("%s\n", de->d_name);
-            closedir(dr);
+            // printf("%s", content);                
+            // snprintf(content,sizeof(content),"%s",content);
+            send(sock, content ,strlen(content),0);
+            // printf("blahblah");                
 
-        }
+        closedir(dr);
+        // return (content);
+        // }
+    //     else{ //will show hidden
+    //         while ((de = readdir(dr)) != NULL)
+    // //            if (de->d_name[0] != '.')
+    //                 printf("%s\n", de->d_name);
+    //         closedir(dr);
+
+    //     }
 
     }
 
