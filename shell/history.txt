@@ -1,0 +1,13 @@
+1 history
+2 clear
+3 date
+4 date -R
+5 date -u
+6 date -R
+7 date -u
+8 celar
+9 clear
+10 clear
+11 exit
+12 ls
+13 exit
