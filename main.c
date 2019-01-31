@@ -11,6 +11,9 @@
 #include <pthread.h>
 
 #include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define SERVER_PORT 8080
 
@@ -31,6 +34,8 @@ char relativePath[100];
 //All function prototypes
 char* directoryWithPath(char *path);
 void fput(char *dir,int sock);
+void fget(char *dir,int sock);
+void cd(int *dir, int sock);
 
 void * sockThread(int sockaccept){
 //     pid_t pid=fork();
@@ -121,7 +126,7 @@ void * sockThread(int sockaccept){
     // send(sock, msg,sizeof(msg),0);
     strcpy(relativePath,"/");
     while(1){
-        printf("loop revertback\n");
+        // printf("loop revertback\n");
         snprintf(msg,sizeof(msg),"%s@SHELL:~%s$",loggedin,relativePath);
         send(sock, msg,sizeof(msg),0);
         memset(cmsg,'\0',sizeof(cmsg));
@@ -191,13 +196,14 @@ void * sockThread(int sockaccept){
             // showdir(directoryWithPath(path),sock); 
         }
         else if(!(strcmp(first,"fget"))){
-            showdir(directoryWithPath(path),sock); //For fget
+            fget(directoryWithPath(path),sock); //For fget
         }
         else if(!(strcmp(first,"create_dir"))){
-            showdir(directoryWithPath(path),sock); //For create_dir
+            create_dir(directoryWithPath(path),sock); //For create_dir
         }
         else if(!(strcmp(first,"cd"))){
-            showdir(directoryWithPath(path),sock); //For cd
+            printf("%s ",directoryWithPath(path));
+            cd(directoryWithPath(path),sock); //For cd
         }
         else if(!(strcmp(first,"exit"))){ //Exiting the remote shell
             close(sock);
@@ -245,7 +251,7 @@ void * sockThread(int sockaccept){
 //     }
 // }
 
-char* directoryWithPath(char *path){ //Returns a path concatenated of currentDir with path variable provided
+char* directoryWithPath(char *path){ //Returns a path concatenated of currentDir with path variable argument
     char aux[1000];
     // memset(path,'\0',sizeof(path)); 
     strcpy(aux,currentDir);
@@ -284,30 +290,56 @@ void showdir(char *dir,int sock) {
 
 
 void fput(char *dir,int sock){
+
     //Check bounded path function
     //Check whether file accessible by the user logged in
+    //
     char content[50];
+    char data[1000];
     // char filepath[200];
     // strcpy(filepath,directoryWithPath(dir));
 
-    //Checking whether the file exists
-    FILE *fptr;
+    FILE *fptr, *fileptr;
 
-    fptr = fopen(dir, "r");
-
+    fptr = fopen(dir, "r"); //Checking whether the file exists
+    // int flag=0;
+    char owner[10];
+    char group[10];
     if(fptr == NULL)
     {
-        snprintf(content,sizeof(content),"Error Opening File, Kindly Check Path/Permission\n");
+        // flag=1;
+        char owner[10];
+        char group[10];
+        snprintf(content,sizeof(content),"Enter Owner-\n");
         send(sock, content ,strlen(content),0);
+        // memset(data,'\0',sizeof(data)); //Dont uncomment this, for some reason fopen is not working if I use this memset
+        recv(sock,data,1000,0);
+        strcpy(owner,data);
+
+        snprintf(content,sizeof(content),"Enter Group-\n");
+        send(sock, content ,strlen(content),0);
+        // memset(data,'\0',sizeof(data));
+        recv(sock,data,1000,0);
+        strcpy(group,data);
+        // system("chmod 777 yolo.txt");
         // printf("Error!");
         // exit(1);
-        return;
+        // return;
     }
-    fclose(fptr);
+    if(fptr!=NULL){
+        fclose(fptr);
+        // printf("blahblah");
+    }
+
+    //Check file permissions HERE-----
+    
     fptr = fopen(dir, "a");
+    printf("%s sadf", fptr);
     if(fptr == NULL)
     {
         snprintf(content,sizeof(content),"Error Opening File, Kindly Check Path/Permission\n");
+        perror("fopen");
+
         send(sock, content ,strlen(content),0);
         // printf("Error!");
         // exit(1);
@@ -316,23 +348,95 @@ void fput(char *dir,int sock){
     memset(content,'\0',sizeof(content));
     strcpy(content,">");
     send(sock, content ,strlen(content),0);
-    char data[1000];
+    
+    
     memset(data,'\0',sizeof(data));
     recv(sock,data,1000,0);
     strcat(data,"\n");
-
-    // fgets(data,sizeof(data),stdin);
-    // send(sock, content ,strlen(content),0);
-
     fprintf(fptr,"%s", data); //File printf
-    // send(sock, content ,strlen(content),0);
-
-    fclose(fptr); 
-    // send(sock, content ,strlen(content),0);
+    fclose(fptr);  
 
 }
 
 
+void fget(char *dir,int sock){
+
+    //Check bounded path function
+    //Check whether file accessible by the user logged in
+    //
+    char content[50];
+    char data[1000];
+    // char filepath[200];
+    // strcpy(filepath,directoryWithPath(dir));
+
+    FILE *fptr;
+
+    fptr = fopen(dir, "r"); //Checking whether the file exists
+    
+    if(fptr == NULL)
+    {
+        snprintf(content,sizeof(content),"Error Opening File, Kindly Check Path/Permission\n");
+        send(sock, content ,strlen(content),0);
+
+        return;
+    }
+    char ch;
+    ch = fgetc(fptr);
+    char aux[2];
+    memset(data,'\0',sizeof(data));
+    while (ch != EOF)
+    {
+        // printf ("%c", ch);
+        snprintf(aux,sizeof(aux),"%c",ch);
+        // strcpy(aux,ch);
+        strcat(data,aux);
+        ch = fgetc(fptr);
+    }
+    // snprintf(content,sizeof(content),"Error Opening File, Kindly Check Path/Permission\n");
+    send(sock, data ,strlen(data),0);
+    fclose(fptr);
+
+}
+
+void create_dir(char *dir, int sock){
+
+    int check;
+    check=mkdir(dir, 0700);
+    if(!check){
+        printf("Directory created\n");
+    }
+    else{
+        char aux[]="Directory already exists\n";
+        send(sock, aux ,strlen(aux),0);
+        perror("wodafoq : ");
+        printf("Unable to create directory\n");
+        return 0;
+    }
+
+}
+
+void cd(int *dir, int sock){
+
+    // struct stat s;
+    // int err = stat(dir, &s);
+    // if(err == -1) {
+    //     if(ENOENT == errno) {
+    //         /* does not exist */
+    //         printf("bitch does not exist ");
+    //     } else {
+    //         perror("stat");
+    //         exit(1);
+    //     }
+    // }
+        printf("bitch ");
+
+    if (0 != access(dir, F_OK)) {
+        if (ENOENT == errno) {
+     // does not exist
+        printf("bitch ");
+        }
+    }
+}
 
 
 
