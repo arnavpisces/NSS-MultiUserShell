@@ -27,7 +27,10 @@ char relativePath[100];
 
 
 // char* showdir(char *dir,char flag);
+
+//All function prototypes
 char* directoryWithPath(char *path);
+void fput(char *dir,int sock);
 
 void * sockThread(int sockaccept){
 //     pid_t pid=fork();
@@ -172,12 +175,39 @@ void * sockThread(int sockaccept){
 
         }  
         //Now we have the first word in first and the path of file/directory in the variable path
-        printf("the length is %d \n",strlen(path));
+        // printf("the length is %d \n",strlen(path));
         // if(strlen(path)!=0){
         //     strcat(currentDir,path);
         //     printf("%s ",currentDir);
         // }
-        showdir(directoryWithPath(path),sock);
+
+        if(!(strcmp(first,"ls"))){
+            printf("hello");
+            showdir(directoryWithPath(path),sock); //For ls
+        }
+        else if(!(strcmp(first,"fput"))){
+            printf("%s ",directoryWithPath(path));
+            fput(directoryWithPath(path),sock); //For fput
+            // showdir(directoryWithPath(path),sock); 
+        }
+        else if(!(strcmp(first,"fget"))){
+            showdir(directoryWithPath(path),sock); //For fget
+        }
+        else if(!(strcmp(first,"create_dir"))){
+            showdir(directoryWithPath(path),sock); //For create_dir
+        }
+        else if(!(strcmp(first,"cd"))){
+            showdir(directoryWithPath(path),sock); //For cd
+        }
+        else if(!(strcmp(first,"exit"))){ //Exiting the remote shell
+            close(sock);
+            pthread_exit(NULL);
+            // exit(0);
+        }
+        else{
+            snprintf(msg,sizeof(msg),"Unknown Command\n");
+            send(sock, msg,sizeof(msg),0);
+        }
         
 
     
@@ -217,6 +247,7 @@ void * sockThread(int sockaccept){
 
 char* directoryWithPath(char *path){ //Returns a path concatenated of currentDir with path variable provided
     char aux[1000];
+    // memset(path,'\0',sizeof(path)); 
     strcpy(aux,currentDir);
     strcat(aux,path);
     return aux;
@@ -248,17 +279,58 @@ void showdir(char *dir,int sock) {
             // printf("blahblah");                
 
         closedir(dr);
-        // return (content);
-        // }
-    //     else{ //will show hidden
-    //         while ((de = readdir(dr)) != NULL)
-    // //            if (de->d_name[0] != '.')
-    //                 printf("%s\n", de->d_name);
-    //         closedir(dr);
-
-    //     }
 
     }
+
+
+void fput(char *dir,int sock){
+    //Check bounded path function
+    //Check whether file accessible by the user logged in
+    char content[50];
+    // char filepath[200];
+    // strcpy(filepath,directoryWithPath(dir));
+
+    //Checking whether the file exists
+    FILE *fptr;
+
+    fptr = fopen(dir, "r");
+
+    if(fptr == NULL)
+    {
+        snprintf(content,sizeof(content),"Error Opening File, Kindly Check Path/Permission\n");
+        send(sock, content ,strlen(content),0);
+        // printf("Error!");
+        // exit(1);
+        return;
+    }
+    fclose(fptr);
+    fptr = fopen(dir, "a");
+    if(fptr == NULL)
+    {
+        snprintf(content,sizeof(content),"Error Opening File, Kindly Check Path/Permission\n");
+        send(sock, content ,strlen(content),0);
+        // printf("Error!");
+        // exit(1);
+        return;
+    }
+    memset(content,'\0',sizeof(content));
+    strcpy(content,">");
+    send(sock, content ,strlen(content),0);
+    char data[1000];
+    memset(data,'\0',sizeof(data));
+    recv(sock,data,1000,0);
+    strcat(data,"\n");
+
+    // fgets(data,sizeof(data),stdin);
+    // send(sock, content ,strlen(content),0);
+
+    fprintf(fptr,"%s", data); //File printf
+    // send(sock, content ,strlen(content),0);
+
+    fclose(fptr); 
+    // send(sock, content ,strlen(content),0);
+
+}
 
 
 

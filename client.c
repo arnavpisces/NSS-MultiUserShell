@@ -29,12 +29,12 @@ void * reader(int sock){
                 pthread_exit(NULL);
             }
         if(!strcmp(message,"\0")){
-                printf("Connection closed by server\n");
+                printf("Connection Closed\n");
                 close(sock);
                 exit(0);
                 pthread_exit(NULL);
             }
-        printf("%s",message); //So if i add a newline in printing message then it would print properly but if i dont add new line then the OS doesn't print to the terminal unless a new line is encountered so the make it print to the terminal even before the newline, i added fflush
+        printf("%s",message); //So if I add a newline in printing message then it would print properly but if i dont add new line then the OS doesn't print to the terminal unless a new line is encountered so the make it print to the terminal even before the newline, i added fflush
         fflush( stdout );
 
 
