@@ -24,7 +24,7 @@ char cmsg[5000];
 int clients=0;
 char users[4][10];
 int sockfds[100];
-char currentDir[200];
+
 char loggedin[10];
 char relativePath[100];
 
@@ -32,10 +32,10 @@ char relativePath[100];
 // char* showdir(char *dir,char flag);
 
 //All function prototypes
-char* directoryWithPath(char *path);
+char* directoryWithPath(char *path, char *currentDir);
 void fput(char *dir,int sock);
 void fget(char *dir,int sock);
-void cd(int *dir, int sock);
+void cd(char *dir, char *path, char *currentDir, int sock);
 
 void * sockThread(int sockaccept){
 //     pid_t pid=fork();
@@ -51,7 +51,8 @@ void * sockThread(int sockaccept){
 //     }
 //     else{ //Child has pid = 0
 //     }
-                   
+    char currentDir[500];
+    memset(currentDir,0,sizeof(currentDir));
     int i=0;
     int id=++clients;
     int sock=sockaccept;
@@ -119,7 +120,7 @@ void * sockThread(int sockaccept){
         justUser[k]=cmsg[k];
     }
     strcat(currentDir,loggedin); //To change the home of the current directory to the user's home
-    strcat(currentDir,"/"); 
+    strcat(currentDir,"/\0"); 
 
     // snprintf(msg,sizeof(msg),"Welcome User %s\n%s@SHELL:~$",loggedin,loggedin);
     // snprintf(msg,sizeof(msg),"%s@SHELL:~%s$",loggedin,relativePath);
@@ -127,6 +128,7 @@ void * sockThread(int sockaccept){
     strcpy(relativePath,"/");
     while(1){
         // printf("loop revertback\n");
+        fflush(stdout);
         snprintf(msg,sizeof(msg),"%s@SHELL:~%s$",loggedin,relativePath);
         send(sock, msg,sizeof(msg),0);
         memset(cmsg,'\0',sizeof(cmsg));
@@ -160,10 +162,10 @@ void * sockThread(int sockaccept){
 
         /*The shell functionality starts from here*/
         // printf("%s\n",loggedin);
-
-        char *commands = strtok (cmsg," ");
+        char * commands=malloc(100);
+        commands = strtok (cmsg," ");
         int flag1=0;
-        char first[10]; //The command that the user will be calling
+        char first[100]; //The command that the user will be calling
         char path[100]; memset(path,'\0',sizeof(path));        
         while(commands!=NULL){
 
@@ -173,8 +175,9 @@ void * sockThread(int sockaccept){
                 flag1=1;
             }
             else{
+
                 strcpy(path,commands);
-                // printf("%s\n",path);
+                // printf("path %s ",path);
             }
             commands = strtok (NULL, " ");
 
@@ -187,23 +190,27 @@ void * sockThread(int sockaccept){
         // }
 
         if(!(strcmp(first,"ls"))){
-            printf("hello");
-            showdir(directoryWithPath(path),sock); //For ls
+            // printf("hello");
+            showdir(directoryWithPath(path,currentDir),sock); //For ls
         }
         else if(!(strcmp(first,"fput"))){
-            printf("%s ",directoryWithPath(path));
-            fput(directoryWithPath(path),sock); //For fput
+            // printf("%s ",directoryWithPath(path));
+            fput(directoryWithPath(path,currentDir),sock); //For fput
             // showdir(directoryWithPath(path),sock); 
         }
         else if(!(strcmp(first,"fget"))){
-            fget(directoryWithPath(path),sock); //For fget
+            fget(directoryWithPath(path,currentDir),sock); //For fget
         }
         else if(!(strcmp(first,"create_dir"))){
-            create_dir(directoryWithPath(path),sock); //For create_dir
+            create_dir(directoryWithPath(path,currentDir),sock); //For create_dir
         }
         else if(!(strcmp(first,"cd"))){
-            printf("%s ",directoryWithPath(path));
-            cd(directoryWithPath(path),sock); //For cd
+            // printf("%s ",directoryWithPath(path));
+            // char *auxillary=malloc(200);
+            // auxillary=directoryWithPath(path,currentDir);
+            // printf("\nmiddle %s %s ",auxillary,auxillary);
+            // cd(auxillary,path,sock); //For cd
+            cd(directoryWithPath(path,currentDir),path,currentDir,sock); //For cd
         }
         else if(!(strcmp(first,"exit"))){ //Exiting the remote shell
             close(sock);
@@ -251,15 +258,26 @@ void * sockThread(int sockaccept){
 //     }
 // }
 
-char* directoryWithPath(char *path){ //Returns a path concatenated of currentDir with path variable argument
+char* directoryWithPath(char *path, char *currentDir){ //Returns a path concatenated of currentDir with path variable argument
     char aux[1000];
-    // memset(path,'\0',sizeof(path)); 
+    // printf("%s ",path);
+    // memset(aux,0,sizeof(aux)); 
     strcpy(aux,currentDir);
+    // printf("%s ",aux);
     strcat(aux,path);
+    // printf("%s ",aux);
+    char blah[]="\0";
+    strcat(aux,blah);
+    // int i=0;
+    // for(i=0;i<100;i++){
+    //     printf("%c",aux[i]);
+    // }
+    printf("aux %s ",aux);
     return aux;
 }
 
 void showdir(char *dir,int sock) {
+        // printf("ls %s %s ",dir,dir);
         struct dirent *de;
         DIR *dr = opendir(dir);
         char content[1000];
@@ -415,27 +433,49 @@ void create_dir(char *dir, int sock){
 
 }
 
-void cd(int *dir, int sock){
+void cd(char *dir, char *path, char *currentDir, int sock){
 
-    // struct stat s;
-    // int err = stat(dir, &s);
-    // if(err == -1) {
-    //     if(ENOENT == errno) {
-    //         /* does not exist */
-    //         printf("bitch does not exist ");
-    //     } else {
-    //         perror("stat");
-    //         exit(1);
-    //     }
-    // }
-        printf("bitch ");
+    // printf("\nINSIDE %s",dir);
 
-    if (0 != access(dir, F_OK)) {
-        if (ENOENT == errno) {
-     // does not exist
-        printf("bitch ");
+    char content[100];
+    struct stat s;
+    int err = stat(dir, &s);
+    if(err == -1) {
+        if(ENOENT == errno) {
+            /* does not exist */
+            snprintf(content,sizeof(content),"Folder does not exist\n");
+            send(sock, content ,strlen(content),0);
+            // printf("bitch does not exist ");
+            // perror("stat");
+            // printf("\n");
+
+        } else {
+                strcat(currentDir,path);
+                printf("\n");
+                printf("%s ",currentDir);
+            // perror("stat");
+            // exit(1);
         }
     }
+    // char blah[]="/";
+    // strcat(dir,blah);
+    // printf("%s",dir);
+    // if (0 != access(dir, F_OK)) {
+    //     if (ENOENT == errno) {
+    //  // does not exist
+    //     printf("bitch ");
+
+    //     }
+    // }
+    // printf("cd : %s ",dir);
+    // int y=0;
+    // for(y=0;y<strlen(dir);y++){
+    //     printf("%c",dir[yS]);
+    // }
+    // dir[strcspn(dir, "\n")] = 0;
+    printf("\nINSIDE %s",dir);
+    printf("\n");
+    
 }
 
 
