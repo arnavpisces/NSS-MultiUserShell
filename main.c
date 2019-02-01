@@ -36,7 +36,7 @@ char directoryAux[1000];
 
 //All function prototypes
 char* directoryWithPath(char *path, char *currentDir);
-void fput(char *dir,int sock);
+void fput(char *dir,char *path,int sock);
 void fget(char *dir,int sock);
 void cd(char *dir, char *path, char *currentDir, char* relativePath, int sock);
 
@@ -201,7 +201,7 @@ void * sockThread(int sockaccept){
         }
         else if(!(strcmp(first,"fput"))){
             // printf("%s ",directoryWithPath(path));
-            fput(directoryWithPath(path,currentDir),sock); //For fput
+            fput(directoryWithPath(path,currentDir),path,sock); //For fput
             // showdir(directoryWithPath(path),sock); 
         }
         else if(!(strcmp(first,"fget"))){
@@ -335,7 +335,7 @@ void showdir(char *dir,int sock) {
     }
 
 
-void fput(char *dir,int sock){
+void fput(char *dir,char *path, int sock){
 
     //Check bounded path function
     //Check whether file accessible by the user logged in
@@ -343,6 +343,7 @@ void fput(char *dir,int sock){
     printf("FPUT %s",dir);
     char content[50];
     char data[1000];
+    memset(data,0,sizeof(data));
     // char filepath[200];
     // strcpy(filepath,directoryWithPath(dir));
 
@@ -350,24 +351,28 @@ void fput(char *dir,int sock){
 
     fptr = fopen(dir, "r"); //Checking whether the file exists
     // int flag=0;
-    char owner[10];
-    char group[10];
+    char owner[1000];
+    char group[1000];
     if(fptr == NULL)
     {
         // flag=1;
-        char owner[10];
-        char group[10];
+        // char owner[10];
+        // char group[10];
+        memset(owner,0,sizeof(owner));
+        memset(group,0,sizeof(group));
         snprintf(content,sizeof(content),"Enter Owner-\n");
         send(sock, content ,strlen(content),0);
         // memset(data,'\0',sizeof(data)); //Dont uncomment this, for some reason fopen is not working if I use this memset
         recv(sock,data,1000,0);
         strcpy(owner,data);
+        print(owner);
 
         snprintf(content,sizeof(content),"Enter Group-\n");
         send(sock, content ,strlen(content),0);
         // memset(data,'\0',sizeof(data));
         recv(sock,data,1000,0);
         strcpy(group,data);
+        // print(group);
         // system("chmod 777 yolo.txt");
         // printf("Error!");
         // exit(1);
@@ -379,9 +384,36 @@ void fput(char *dir,int sock){
     }
 
     //Check file permissions HERE-----
-    
+    //Creating hidden permission file
+    char hiddenFileDir[200];
+    // sprintf(hiddenFileDir,sizeof(hiddenFileDir),"/%s",dir);
+    strcpy(hiddenFileDir,dir);
+    strcat(hiddenFileDir,"/");
+    print(hiddenFileDir);
+    removeLastDir(hiddenFileDir);
+    print(hiddenFileDir);
+    char hiddenName[100];
+    snprintf(hiddenName,sizeof(hiddenName),"%s.%s",hiddenFileDir,path);
+    // print(hiddenName);
+    fptr=fopen(hiddenName,"a");
+    if(fptr == NULL)
+    {
+        // snprintf(content,sizeof(content),"Error Opening File, Kindly Check Path/Permission\n");
+        perror("fopen");
+
+        // send(sock, content ,strlen(content),0);
+        // printf("Error!");
+        // exit(1);
+        return;
+    }
+    char permission[10];
+    memset(permission,0,sizeof(permission));
+    snprintf(permission,sizeof(permission),"%s %s\n",owner,group);
+    fprintf(fptr,"%s", permission);
+    fclose(fptr);  
+
     fptr = fopen(dir, "a");
-    printf("%s sadf", fptr);
+    // printf("%s sadf", fptr);
     if(fptr == NULL)
     {
         snprintf(content,sizeof(content),"Error Opening File, Kindly Check Path/Permission\n");
@@ -584,9 +616,10 @@ void removeLastDir(char *currentDir){
     }
     
     /* Read the output a line at a time - output it. */
-    while (fgets(output, sizeof(output)-1, fp) != NULL) {
-        // printf("\noutput from file blah %s blah again", output);
-    }
+    // while (fgets(output, sizeof(output)-1, fp) != NULL) {
+    //     // printf("\noutput from file blah %s blah again", output);
+    // }
+    fgets(output,sizeof(output),fp);
 
     /* close */
     pclose(fp);
