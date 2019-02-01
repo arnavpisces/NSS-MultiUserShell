@@ -306,8 +306,10 @@ void showdir(char *dir,int sock) {
         // if (flag == 'y') { //won't show hidden
         while ((de = readdir(dr)) != NULL){
             if (de->d_name[0] != '.'){
+                memset(file,'\0',sizeof(file));
+
                 // printf("%s\n", de->d_name);
-                strcat(file,de->d_name);
+                strcpy(file,de->d_name);
                 getFilePermission(permission,de->d_name,dir);
                 // print(permission);
                 int i;
@@ -317,12 +319,15 @@ void showdir(char *dir,int sock) {
                         break;
                     }
                 }
+                snprintf(content,sizeof(content),"%s %s",file,permission);
+            // strcat(content,"\n");
+                send(sock, content ,strlen(content),0);
             }
         }
             // printf("%s", content);                
-            snprintf(content,sizeof(content),"%s %s",file,permission);
-            // strcat(content,"\n");
-            send(sock, content ,strlen(content),0);
+            // snprintf(content,sizeof(content),"%s %s",file,permission);
+            // // strcat(content,"\n");
+            // send(sock, content ,strlen(content),0);
             // printf("blahblah");                
 
         closedir(dr);
