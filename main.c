@@ -19,6 +19,7 @@
 
 #define TRUE 1
 #define FALSE 0
+#define print(f) printf("\n%s\n",f);
 
 char cmsg[5000];
 int clients=0;
@@ -297,18 +298,30 @@ void showdir(char *dir,int sock) {
             send(sock, content ,strlen(content),0);
             return;
         }
-        
+        /*Permission Handler*/
+        char permission[10];
+        char file[50];
         memset(content,'\0',sizeof(content));
+        memset(file,'\0',sizeof(file));
         // if (flag == 'y') { //won't show hidden
         while ((de = readdir(dr)) != NULL){
             if (de->d_name[0] != '.'){
                 // printf("%s\n", de->d_name);
-                strcat(content,de->d_name);
-                strcat(content,"\n");
+                strcat(file,de->d_name);
+                getFilePermission(permission,de->d_name,dir);
+                // print(permission);
+                int i;
+                for(i=0;;i++){
+                    if(permission[i]==' '){
+                        permission[i]='-';
+                        break;
+                    }
+                }
             }
         }
             // printf("%s", content);                
-            // snprintf(content,sizeof(content),"%s",content);
+            snprintf(content,sizeof(content),"%s %s",file,permission);
+            // strcat(content,"\n");
             send(sock, content ,strlen(content),0);
             // printf("blahblah");                
 
@@ -576,7 +589,31 @@ void removeLastDir(char *currentDir){
     // return output;
 }
 
+void getFilePermission(char *permission, char *name, char* currentDir){
+    //Opening the file
+    FILE *fptr;
+    // print(name);
+    // printf("\n%s\n",relativePath);
+    // printf("\n%s\n",currentDir)
+    char filename[50];
+    char auxPerm[10];
+    memset(filename,0,sizeof(filename));
+    // strcat(".",filename);
+    // strcat(filename,name);
+    snprintf(filename, sizeof(filename),"%s.%s",currentDir,name);
+    // filename[strlen(filename)]=0;
+    // printf(filename);
 
+    fptr=fopen(filename,"r");
+    if(fptr==NULL){
+        printf("Some error in reading file permission\n");
+        perror("bata bhai ");
+        return;
+    }
+    fgets(auxPerm,sizeof(auxPerm),fptr);
+    strcpy(permission,auxPerm);
+    // print(auxPerm);
+}
 
 
 
