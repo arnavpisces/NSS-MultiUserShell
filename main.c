@@ -28,6 +28,8 @@ int sockfds[100];
 char loggedin[10];
 char relativePath[100];
 
+char directoryAux[1000];
+
 
 // char* showdir(char *dir,char flag);
 
@@ -35,7 +37,7 @@ char relativePath[100];
 char* directoryWithPath(char *path, char *currentDir);
 void fput(char *dir,int sock);
 void fget(char *dir,int sock);
-void cd(char *dir, char *path, char *currentDir, int sock);
+void cd(char *dir, char *path, char *currentDir, char* relativePath, int sock);
 
 void * sockThread(int sockaccept){
 //     pid_t pid=fork();
@@ -59,8 +61,9 @@ void * sockThread(int sockaccept){
     
     char msg[5000];
     char shellHeader[200];
-    
-    strcpy(currentDir,"./sandbox/simple_slash/simple_home/");
+    char home[100];
+    strcpy(home,"./sandbox/simple_slash/simple_home/");
+    strcpy(currentDir,home);
 
     // snprintf(msg,sizeof(msg),"%s ",currentDir);
     // send(sock, msg,strlen(msg),0);
@@ -112,6 +115,8 @@ void * sockThread(int sockaccept){
     strcpy(loggedin, cmsg); //Copying the logged in user to the loggedin variable
     // memset(cmsg,'\0',sizeof(cmsg));
     snprintf(msg,sizeof(msg),"Welcome User %s\n",cmsg);
+    strcat(home,cmsg);
+    strcat(home,"/");
     send(sock, msg,strlen(msg),0);
 
     char justUser[10]; //String for user without null terminator
@@ -210,7 +215,12 @@ void * sockThread(int sockaccept){
             // auxillary=directoryWithPath(path,currentDir);
             // printf("\nmiddle %s %s ",auxillary,auxillary);
             // cd(auxillary,path,sock); //For cd
-            cd(directoryWithPath(path,currentDir),path,currentDir,sock); //For cd
+            if(strlen(path)==0){
+                strcpy(currentDir,home);
+            }
+            else{
+                cd(directoryWithPath(&path,currentDir),path,currentDir,relativePath,sock); //For cd
+            }
         }
         else if(!(strcmp(first,"exit"))){ //Exiting the remote shell
             close(sock);
@@ -259,21 +269,21 @@ void * sockThread(int sockaccept){
 // }
 
 char* directoryWithPath(char *path, char *currentDir){ //Returns a path concatenated of currentDir with path variable argument
-    char aux[1000];
+    // char aux[1000];
     // printf("%s ",path);
-    // memset(aux,0,sizeof(aux)); 
-    strcpy(aux,currentDir);
+    memset(directoryAux,0,sizeof(directoryAux)); 
+    strcpy(directoryAux,currentDir);
     // printf("%s ",aux);
-    strcat(aux,path);
+    strcat(directoryAux,path);
     // printf("%s ",aux);
     char blah[]="\0";
-    strcat(aux,blah);
+    strcat(directoryAux,blah);
     // int i=0;
     // for(i=0;i<100;i++){
     //     printf("%c",aux[i]);
     // }
-    printf("aux %s ",aux);
-    return aux;
+    // printf("aux %s ",directoryAux);
+    return directoryAux;
 }
 
 void showdir(char *dir,int sock) {
@@ -312,6 +322,7 @@ void fput(char *dir,int sock){
     //Check bounded path function
     //Check whether file accessible by the user logged in
     //
+    printf("FPUT %s",dir);
     char content[50];
     char data[1000];
     // char filepath[200];
@@ -433,30 +444,83 @@ void create_dir(char *dir, int sock){
 
 }
 
-void cd(char *dir, char *path, char *currentDir, int sock){
+void cd(char *dir, char *path, char *currentDir, char* relativePath, int sock){
 
     // printf("\nINSIDE %s",dir);
 
     char content[100];
-    struct stat s;
-    int err = stat(dir, &s);
-    if(err == -1) {
-        if(ENOENT == errno) {
-            /* does not exist */
-            snprintf(content,sizeof(content),"Folder does not exist\n");
-            send(sock, content ,strlen(content),0);
-            // printf("bitch does not exist ");
-            // perror("stat");
-            // printf("\n");
 
-        } else {
-                strcat(currentDir,path);
-                printf("\n");
-                printf("%s ",currentDir);
-            // perror("stat");
-            // exit(1);
+    // struct stat s;
+    // int err = stat(dir, &s);
+    // if(err == -1) {
+    //     if(ENOENT == errno) {
+    //         /* does not exist */
+    //         printf("folder no exists\n"); 
+    //         fflush(stdout); 
+
+    //         snprintf(content,sizeof(content),"Folder does not exist\n");
+    //         send(sock, content ,strlen(content),0);
+    //         // printf("bitch does not exist ");
+    //         // perror("stat");
+    //         // printf("\n");
+
+    //     } else {
+    //         printf("folder exists\n");  
+    //             snprintf(content,sizeof(content),"Folder does exist\n");
+    //             send(sock, content ,strlen(content),0);
+    //             strcat(currentDir,path);
+    //             printf("\n");
+    //             printf("%s ",currentDir);
+    //         // perror("stat");
+    //         // exit(1);
+    //     }
+    // }
+
+        DIR* dire = opendir(dir);
+        printf("\n%s\n",dir);
+        //Check here for permissions or check once on directoryWithPath
+        if (dire)
+        {
+            /* Directory exists. */
+            closedir(dire);
+            //Take the path one by one and keep adding on to the currentDir and keep on checking at everypoint whether within bounds or not
+            //If .. then remove one and check permissions
+
+            //Henceforth it is assuming that the necessary permissions are present.
+            char * subPath=malloc(100);
+            subPath = strtok (path,"/");
+            char auxPath[100]; memset(auxPath,'\0',sizeof(auxPath));        
+            while(subPath!=NULL){
+
+
+                memset(auxPath,'\0',sizeof(auxPath));  
+                strcpy(auxPath,subPath); //Copy one by one into auxPath the directories present in subPath
+                printf("%s\n",auxPath);
+                if(!strcmp(auxPath,"..")){
+                    // printf("%s\n",currentDir);
+                    removeLastDir(currentDir);
+                    // strcat(currentDir,"/");
+
+                    // printf("%s\n",currentDir);
+                    // printf("its a dot\n");
+                }
+                else{
+                    strcat(currentDir,auxPath);
+                    strcat(currentDir,"/");
+                }
+                subPath = strtok (NULL, "/");
+
+            }
+            // strcat(currentDir ,path);
+            // strcat(relativePath,path);
         }
-    }
+        else if (ENOENT == errno)
+        {
+            /* Directory does not exist. */
+            snprintf(content,sizeof(content),"No such file or directory\n");
+            send(sock, content ,strlen(content),0);
+        }
+
     // char blah[]="/";
     // strcat(dir,blah);
     // printf("%s",dir);
@@ -473,13 +537,44 @@ void cd(char *dir, char *path, char *currentDir, int sock){
     //     printf("%c",dir[yS]);
     // }
     // dir[strcspn(dir, "\n")] = 0;
-    printf("\nINSIDE %s",dir);
-    printf("\n");
+    // printf("\nINSIDE %s",dir);
+    // printf("\n");/
     
 }
 
+char output[200]; //Global Variable to prevent pointer garbage bullshit
+void removeLastDir(char *currentDir){
+    FILE *fp;
+    // printf("%s",currentDir);
+    // fflush(stdout);
+    char content[100];
+    // char output[1035];
+    memset(output,'\0',sizeof(output));
+    // printf("%s",output);
+    fflush(stdout);
+    /* Open the command for reading. */
+    char pythonArgs[200];
+    snprintf(pythonArgs,sizeof(pythonArgs),"python3 dir.py %s",currentDir);
+    // printf("%s",pythonArgs);
+    fp = popen(pythonArgs, "r");
+    if (fp == NULL) {
+        printf("Failed to run p command\n" );
+        // exit(1);
+        // snprintf(content,sizeof(content),"Not able to open the file\n");
+        // send(sock, content ,strlen(content),0);
+        return;
+    }
+    
+    /* Read the output a line at a time - output it. */
+    while (fgets(output, sizeof(output)-1, fp) != NULL) {
+        // printf("\noutput from file blah %s blah again", output);
+    }
 
-
+    /* close */
+    pclose(fp);
+    strcpy(currentDir,output);
+    // return output;
+}
 
 
 
